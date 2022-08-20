@@ -3,13 +3,12 @@ package main
 import (
 	_ "embed"
 	"fileshare/service"
-	"fmt"
 	"log"
 
 	"github.com/getlantern/systray"
 )
 
-//go:embed icon/Folder.ico
+//go:embed icon/Archive.ico
 var ricon []byte
 
 func init() {
@@ -33,11 +32,11 @@ func onReady() {
 		for {
 			select {
 			case <-mQuit.ClickedCh:
-				fmt.Println("app quit")
+				log.Println("app quit")
 				systray.Quit()
 				return
 			case <-mOpen.ClickedCh:
-				fmt.Println("run mdns & udp")
+				log.Println("run mdns & udp")
 				service.Instance.Run()
 			case <-mSele.ClickedCh:
 				service.Instance.SendFile()
