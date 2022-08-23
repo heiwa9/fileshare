@@ -77,7 +77,6 @@ func (svc *Service) Run() {
 }
 
 func (svc *Service) Stop() {
-	svc.bonjonrc.Exit <- true
 	svc.bonjonrs.Shutdown()
 	svc.listener.Close()
 }
