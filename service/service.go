@@ -19,14 +19,18 @@ import (
 	"time"
 
 	"github.com/gen2brain/dlgs"
-	"github.com/grandcat/zeroconf"
 	"github.com/lucas-clemente/quic-go"
+	"github.com/oleksandr/bonjour"
 )
 
 const (
 	SERVER_HOST  = "0.0.0.0"
 	SERVICE_PORT = ":9909"
-	MDNS_PORT    = 9908
+
+	BONJOR_PORT      = 9908
+	BONJOR_NAMESPACE = "FileShare"
+	BONJOR_SERVICE   = "_fileshare._udp"
+	BONJOR_DOMAIN    = "_local"
 
 	MESSAGE_VERSION = 1
 	TOPIC_STR       = "(%d,%d)"
@@ -36,21 +40,22 @@ var Instance Service
 
 type StreamHandlerFunc func(r io.Reader, w io.Writer) (err error)
 type Service struct {
-	m        *zeroconf.Server // 发现服务
+	bonjonrs *bonjour.Server // 发现服务
+	bonjonrc *bonjour.Resolver
 	listener quic.Listener
 	handlers map[string]StreamHandlerFunc
 }
 
 // 开启mdns和udp服务
 func (svc *Service) Run() {
-	if svc.m != nil {
+	if svc.bonjonrs != nil {
 		dlgs.Warning("FileShare", "服务运行中")
 		return
 	}
 	var err error
-	svc.m, err = zeroconf.Register("fileshare", "_workstation._udp", "local.", MDNS_PORT, []string{SERVICE_PORT}, nil)
+	svc.bonjonrs, err = bonjour.Register(BONJOR_NAMESPACE, BONJOR_SERVICE, BONJOR_DOMAIN, BONJOR_PORT, []string{"txtv=1", "app=test"}, nil)
 	if err != nil {
-		log.Panicln(err)
+		log.Panicln(err.Error())
 	}
 
 	svc.listener, err = quic.ListenAddr(SERVER_HOST+SERVICE_PORT, GenerateTLSConfig(), nil)
@@ -73,36 +78,37 @@ func (svc *Service) Run() {
 }
 
 func (svc *Service) Stop() {
-	svc.m.Shutdown()
+	svc.bonjonrs.Shutdown()
 	svc.listener.Close()
 }
 
 // mdns设备发现
-func (svc *Service) discover() []*zeroconf.ServiceEntry {
-	// Discover all services on the network (e.g. _workstation._tcp)
-	resolver, err := zeroconf.NewResolver(nil)
-	if err != nil {
-		log.Fatalln("Failed to initialize resolver:", err.Error())
-	}
-
-	var entrys []*zeroconf.ServiceEntry
-	entries := make(chan *zeroconf.ServiceEntry)
-	go func(results <-chan *zeroconf.ServiceEntry) {
-		for entry := range results {
-			entrys = append(entrys, entry)
+func (svc *Service) discover() []*bonjour.ServiceEntry {
+	var err error
+	if svc.bonjonrc == nil {
+		svc.bonjonrc, err = bonjour.NewResolver(nil)
+		if err != nil {
+			log.Panicln("Failed to initialize resolver:", err.Error())
 		}
-		log.Println("No more entries.")
-	}(entries)
-
-	ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*200)
-	defer cancel()
-	err = resolver.Browse(ctx, "_workstation._udp", "local.", entries)
-	if err != nil {
-		log.Fatalln("Failed to browse:", err.Error())
 	}
-	<-ctx.Done()
 
-	return entrys
+	var entries []*bonjour.ServiceEntry
+	entriesc := make(chan *bonjour.ServiceEntry)
+	go func(entriesc chan *bonjour.ServiceEntry) {
+		for e := range entriesc {
+			entries = append(entries, e)
+			log.Println(e.HostName, e.AddrIPv4.String())
+		}
+	}(entriesc)
+
+	err = svc.bonjonrc.Lookup(BONJOR_NAMESPACE, BONJOR_SERVICE, BONJOR_DOMAIN, entriesc)
+	if err != nil {
+		log.Println("Failed to browse:", err.Error())
+	}
+
+	time.Sleep(time.Second * 1)
+
+	return entries
 }
 
 // quic连接处理
@@ -240,7 +246,7 @@ func (svc *Service) download(r io.Reader, w io.Writer) (err error) {
 func (svc *Service) SendFile() {
 	se := svc.discover()
 	var hosts []string
-	hostMap := make(map[string]*zeroconf.ServiceEntry)
+	hostMap := make(map[string]*bonjour.ServiceEntry)
 	for _, v := range se {
 		hostMap[v.HostName] = v
 		hosts = append(hosts, v.HostName)
@@ -261,7 +267,7 @@ func (svc *Service) SendFile() {
 		NextProtos:         []string{"quic-echo-example"},
 	}
 	tohost := hostMap[h]
-	conn, err := quic.DialAddr(tohost.AddrIPv4[0].String()+tohost.Text[0], tlsConf, nil)
+	conn, err := quic.DialAddr(tohost.AddrIPv4.String()+tohost.Text[0], tlsConf, nil)
 	if err != nil {
 		log.Panic(err)
 	}

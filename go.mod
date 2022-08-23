@@ -3,11 +3,11 @@ module fileshare
 go 1.19
 
 require (
-	github.com/0xAX/notificator v0.0.0-20220220101646-ee9b8921e557
 	github.com/gen2brain/dlgs v0.0.0-20220603100644-40c77870fa8d
 	github.com/getlantern/systray v1.2.1
 	github.com/grandcat/zeroconf v1.0.0
 	github.com/lucas-clemente/quic-go v0.28.1
+	github.com/oleksandr/bonjour v0.0.0-20210301155756-30f43c61b915
 )
 
 require (
@@ -27,7 +27,7 @@ require (
 	github.com/marten-seemann/qtls-go1-17 v0.1.2 // indirect
 	github.com/marten-seemann/qtls-go1-18 v0.1.2 // indirect
 	github.com/marten-seemann/qtls-go1-19 v0.1.0-beta.1 // indirect
-	github.com/miekg/dns v1.1.27 // indirect
+	github.com/miekg/dns v1.1.41 // indirect
 	github.com/nxadm/tail v1.4.8 // indirect
 	github.com/onsi/ginkgo v1.16.4 // indirect
 	github.com/oxtoacart/bpool v0.0.0-20190530202638-03653db5a59c // indirect
