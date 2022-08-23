@@ -41,7 +41,6 @@ var Instance Service
 type StreamHandlerFunc func(r io.Reader, w io.Writer) (err error)
 type Service struct {
 	bonjonrs *bonjour.Server // 发现服务
-	bonjonrc *bonjour.Resolver
 	listener quic.Listener
 	handlers map[string]StreamHandlerFunc
 }
@@ -85,14 +84,10 @@ func (svc *Service) Stop() {
 
 // mdns设备发现
 func (svc *Service) discover() []*bonjour.ServiceEntry {
-	var err error
-	if svc.bonjonrc == nil {
-		svc.bonjonrc, err = bonjour.NewResolver(nil)
-		if err != nil {
-			log.Panicln("Failed to initialize resolver:", err.Error())
-		}
+	bonjonrc, err := bonjour.NewResolver(nil)
+	if err != nil {
+		log.Panicln("Failed to initialize resolver:", err.Error())
 	}
-
 	var entries []*bonjour.ServiceEntry
 	entriesc := make(chan *bonjour.ServiceEntry)
 	go func(entriesc chan *bonjour.ServiceEntry) {
@@ -101,13 +96,12 @@ func (svc *Service) discover() []*bonjour.ServiceEntry {
 			log.Println(e.HostName, e.AddrIPv4.String())
 		}
 	}(entriesc)
-
-	err = svc.bonjonrc.Lookup(BONJOR_NAMESPACE, BONJOR_SERVICE, BONJOR_DOMAIN, entriesc)
+	err = bonjonrc.Lookup(BONJOR_NAMESPACE, BONJOR_SERVICE, BONJOR_DOMAIN, entriesc)
 	if err != nil {
 		log.Println("Failed to browse:", err.Error())
 	}
-
 	time.Sleep(time.Second * 1)
+	bonjonrc.Exit <- true
 
 	return entries
 }
