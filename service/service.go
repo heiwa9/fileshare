@@ -53,7 +53,7 @@ func (svc *Service) Run() {
 		return
 	}
 	var err error
-	svc.bonjonrs, err = bonjour.Register(BONJOR_NAMESPACE, BONJOR_SERVICE, BONJOR_DOMAIN, BONJOR_PORT, []string{"txtv=1", "app=test"}, nil)
+	svc.bonjonrs, err = bonjour.Register(BONJOR_NAMESPACE, BONJOR_SERVICE, BONJOR_DOMAIN, BONJOR_PORT, []string{SERVICE_PORT}, nil)
 	if err != nil {
 		log.Panicln(err.Error())
 	}
@@ -78,6 +78,7 @@ func (svc *Service) Run() {
 }
 
 func (svc *Service) Stop() {
+	svc.bonjonrc.Exit <- true
 	svc.bonjonrs.Shutdown()
 	svc.listener.Close()
 }
